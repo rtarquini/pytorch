@@ -1838,7 +1838,7 @@ struct TopoMoveTestFixture {
       const std::string& insertPoint) {
     std::function<bool(Node*, Node*)> func =
         [this](Node* toInsert, Node* insertPoint) {
-          return toInsert->moveBeforeTopologicallyValid(insertPoint, *aliasDb);
+          return aliasDb->moveBeforeTopologicallyValid(insertPoint, toInsert);
         };
     return moveWithChecks(toInsert, insertPoint, func);
   }
@@ -1848,7 +1848,7 @@ struct TopoMoveTestFixture {
       const std::string& insertPoint) {
     std::function<bool(Node*, Node*)> func =
         [this](Node* toInsert, Node* insertPoint) {
-          return toInsert->moveAfterTopologicallyValid(insertPoint, *aliasDb);
+          return aliasDb->moveAfterTopologicallyValid(insertPoint, toInsert);
         };
     return moveWithChecks(toInsert, insertPoint, func);
   }
@@ -2033,15 +2033,15 @@ void testAliasAnalysis() {
 
     graph->lint();
 
-    const auto aliasDb = AliasAnalysis(graph);
+    auto aliasDb = AliasAnalysis(graph);
     // Can't move past a mutation of a used value
-    JIT_ASSERT(!c->node()->moveAfterTopologicallyValid(aMut->node(), aliasDb));
-    JIT_ASSERT(d->node()->moveAfterTopologicallyValid(c->node(), aliasDb));
+    JIT_ASSERT(!aliasDb.moveAfterTopologicallyValid(aMut->node(), c->node()));
+    JIT_ASSERT(aliasDb.moveAfterTopologicallyValid(c->node(), d->node()));
 
     // b should alias to a (since they are both inputs)
     JIT_ASSERT(
-        !addsB->node()->moveAfterTopologicallyValid(aMut->node(), aliasDb));
-    JIT_ASSERT(addsB->node()->moveAfterTopologicallyValid(c->node(), aliasDb));
+        !aliasDb.moveAfterTopologicallyValid(aMut->node(), addsB->node()));
+    JIT_ASSERT(aliasDb.moveAfterTopologicallyValid(c->node(), addsB->node()));
 
     graph->lint();
   }
@@ -2058,12 +2058,11 @@ void testAliasAnalysis() {
     auto c = graph->insert(aten::add, {fresh, aliasesB});
     graph->lint();
 
-    const auto aliasDb = AliasAnalysis(graph);
-
-    JIT_ASSERT(!aliasesB->node()->moveAfterTopologicallyValid(
-        mutatesAliasOfB->node(), aliasDb));
-    JIT_ASSERT(!usesB->node()->moveAfterTopologicallyValid(
-        mutatesAliasOfB->node(), aliasDb));
+    auto aliasDb = AliasAnalysis(graph);
+    JIT_ASSERT(!aliasDb.moveAfterTopologicallyValid(
+        mutatesAliasOfB->node(), aliasesB->node()));
+    JIT_ASSERT(!aliasDb.moveAfterTopologicallyValid(
+        mutatesAliasOfB->node(), usesB->node()));
   }
 }
 } // namespace
